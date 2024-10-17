@@ -10,25 +10,28 @@ _LOGGER = logging.getLogger("spaceone")
 pattern = r"provider=([^/]+)/cloud_service_group=([^/]+)/cloud_service_type=([^/]+)/.+"
 
 
-class FileManager(BaseManager):
+class StorageManager(BaseManager):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.gcs_connector = None
+        self.bucket_name = None
 
     def get_assets_info(self, options: dict, secret_data: dict) -> List[Dict[str, Any]]:
         self.gcs_connector = GCSConnector(options, secret_data)
-        bucket_name = options.get("bucket_name")
+        self.bucket_name = options.get("bucket_name")
 
-        bucket = self.gcs_connector.get_bucket(bucket_name)
+        bucket = self.gcs_connector.get_bucket(self.bucket_name)
         blobs_path = [
             blob.name for blob in bucket.list_blobs() if re.match(pattern, blob.name)
         ]
 
-        return self._create_assets_info(blobs_path, bucket_name)
+        if not blobs_path:
+            _LOGGER.debug(f"[get_assets_info] No assets found in {self.bucket_name}")
 
-    @staticmethod
-    def _create_assets_info(blobs_path: list, bucket_name: str) -> List[Dict[str, Any]]:
+        return self._create_assets_info(blobs_path)
+
+    def _create_assets_info(self, blobs_path: list) -> List[Dict[str, Any]]:
         groups = defaultdict(dict)
 
         for blob_path in blobs_path:
@@ -46,22 +49,30 @@ class FileManager(BaseManager):
             group_key = (provider, cloud_service_group, cloud_service_type)
 
             if file_name.endswith(".csv"):
-                groups[group_key]["csv_file_path"] = f"{bucket_name}/{blob_path}"
-            elif file_name == "metadata.yaml":
-                groups[group_key]["metadata_file_path"] = f"{bucket_name}/{blob_path}"
+                groups[group_key]["csv_file_path"] = f"{self.bucket_name}/{blob_path}"
+            elif file_name == "metadata.yaml" or file_name == "metadata.yml":
+                groups[group_key][
+                    "metadata_file_path"
+                ] = f"{self.bucket_name}/{blob_path}"
 
-        assets_info = []
-        for (
-            provider,
-            cloud_service_group,
-            cloud_service_type,
-        ), files in groups.items():
-            entry = {
+        assets_info = [
+            {
                 "provider": provider,
                 "cloud_service_group": cloud_service_group,
                 "cloud_service_type": cloud_service_type,
+                **files,
             }
-            entry.update(files)
-            assets_info.append(entry)
+            for (
+                provider,
+                cloud_service_group,
+                cloud_service_type,
+            ), files in groups.items()
+        ]
+
+        if not any("metadata_file_path" in files for files in groups.values()):
+            if assets_info:
+                assets_info[0]["is_primary"] = True
+
+        _LOGGER.debug(f"[get_assets_info] assets_info: {assets_info}")
 
         return assets_info

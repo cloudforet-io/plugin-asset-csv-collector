@@ -87,21 +87,6 @@ class ResourceManager(BaseManager):
     ) -> Generator[dict, None, None]:
         raise ERROR_NOT_IMPLEMENTED()
 
+    @abc.abstractmethod
     def get_cloud_service_type(self) -> dict:
-        cloud_service_type = make_cloud_service_type(
-            name=self.cloud_service_type,
-            group=self.cloud_service_group,
-            provider=self.provider,
-            metadata_path=self.metadata_path,
-            is_primary=self.is_primary,
-            is_major=self.is_primary,
-            service_code=self.service_code,
-            tags={"spaceone:icon": f"{ICON_URL_PREFIX}/{self.icon}"},
-            labels=self.labels,
-        )
-
-        return make_response(
-            resource_type="inventory.CloudServiceType",
-            cloud_service_type=cloud_service_type,
-            match_keys=[["name", "group", "provider"]],
-        )
+        raise ERROR_NOT_IMPLEMENTED()

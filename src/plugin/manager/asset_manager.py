@@ -29,6 +29,9 @@ class AssetManager(ResourceManager):
         if metadata_file_path := asset_info.get("metadata_file_path"):
             self._initialize_metadata(metadata_file_path)
 
+        if "is_primary" in asset_info:
+            self.is_primary = asset_info["is_primary"]
+
     def collect_cloud_services(
         self, options: dict, secret_data: dict, schema: str
     ) -> Generator[dict, None, None]:
@@ -38,6 +41,11 @@ class AssetManager(ResourceManager):
         blob = bucket.get_blob(csv_file_path)
         text = blob.download_as_text()
         data_frame = pd.read_csv(io.StringIO(text))
+
+        _LOGGER.debug(
+            f"[{self.__repr__()}] {self.cloud_service_group} > {self.cloud_service_type}: "
+            f"Dataset Row Count: {len(data_frame)}"
+        )
 
         columns = list(data_frame.columns)
         self._check_data_columns(columns)
@@ -53,18 +61,20 @@ class AssetManager(ResourceManager):
         account = row.get("account")
         region_code = row.get("region_code")
 
-        default_resource_id = f"{self.provider}:{self.cloud_service_group}:{self.cloud_service_type}:{name}"
-        if unique_id := row.get("unique_id"):
-            default_resource_id = unique_id
+        default_resource_id = row.get(
+            "unique_id",
+            f"{self.provider}:{self.cloud_service_group}:{self.cloud_service_type}:{name}",
+        )
 
         resource_id = row.get("resource_id", default_resource_id)
 
         columns = list(row.index)
 
-        data = {}
-        for column in columns:
-            if column.startswith("data."):
-                data[column.split("data.")[1]] = row[column]
+        data = {
+            column.split("data.")[1]: row[column]
+            for column in columns
+            if column.startswith("data.")
+        }
 
         return make_cloud_service(
             name=name,
@@ -126,7 +136,7 @@ class AssetManager(ResourceManager):
         try:
             return yaml.safe_load(yaml_str)
         except yaml.YAMLError as exc:
-            print(f"Error parsing YAML: {exc}")
+            _LOGGER.debug(f"Error parsing YAML: {exc}")
             return
 
     @staticmethod
