@@ -1,0 +1,1 @@
+# plugin-asset-csv-collector
