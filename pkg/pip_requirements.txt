@@ -1,0 +1,4 @@
+pandas
+spaceone-api
+google-cloud-storage
+google-api-python-client
