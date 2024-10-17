@@ -57,7 +57,18 @@ def _create_init_metadata() -> dict:
                 "inventory.Region",
                 "inventory.ErrorResource",
             ],
-        }
+        },
+        "options_schema": {
+            "type": "object",
+            "properties": {
+                "bucket_name": {
+                    "type": "string",
+                    "title": "Bucket Name",
+                    "description": "The name of the Google Cloud Storage bucket",
+                }
+            },
+            "required": ["bucket_name"],
+        },
     }
 
 
