@@ -16,7 +16,7 @@ class FileManager(BaseManager):
         super().__init__(*args, **kwargs)
         self.gcs_connector = None
 
-    def get_assets_info(self, options: dict, secret_data: dict) -> list[dict[str, Any]]:
+    def get_assets_info(self, options: dict, secret_data: dict) -> List[Dict[str, Any]]:
         self.gcs_connector = GCSConnector(options, secret_data)
         bucket_name = options.get("bucket_name")
 
