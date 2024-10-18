@@ -11,6 +11,7 @@ from plugin.connector.gcs_connector import GCSConnector
 _LOGGER = logging.getLogger("spaceone")
 
 REQUIRED_COLUMNS = ["name"]
+STRUCTURED_COLUMNS = ["name", "account", "region_code", "unique_id", "resource_id"]
 
 
 class AssetManager(ResourceManager):
@@ -71,9 +72,9 @@ class AssetManager(ResourceManager):
         columns = list(row.index)
 
         data = {
-            column.split("data.")[1]: row[column]
+            column: row[column]
             for column in columns
-            if column.startswith("data.")
+            if column not in STRUCTURED_COLUMNS
         }
 
         return make_cloud_service(
@@ -119,11 +120,9 @@ class AssetManager(ResourceManager):
 
             if "icon" in metadata_dict:
                 self.icon = metadata_dict["icon"]
-                del metadata_dict["icon"]
 
             if "is_primary" in metadata_dict:
                 self.is_primary = metadata_dict["is_primary"]
-                del metadata_dict["is_primary"]
 
             if "search" in metadata_dict:
                 self.metadata["search"] = metadata_dict["search"]
@@ -151,7 +150,6 @@ class AssetManager(ResourceManager):
         self.metadata["table"] = {"sort": {"key": "name"}, "fields": []}
 
         for column in columns:
-            if column not in REQUIRED_COLUMNS and column.startswith("data."):
-                column_name = column.split("data.")[1]
-                self.metadata["search"]["fields"].append({column_name: column})
-                self.metadata["table"]["fields"].append({column_name: column})
+            if column not in REQUIRED_COLUMNS and column not in STRUCTURED_COLUMNS:
+                self.metadata["search"]["fields"].append({column: f"data.{column}"})
+                self.metadata["table"]["fields"].append({column: f"data.{column}"})
