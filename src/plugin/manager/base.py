@@ -25,6 +25,7 @@ class ResourceManager(BaseManager):
         self.service_code = None
         self.is_primary = False
         self.icon = None
+        self.unique_key = None
         self.labels = []
         self.metadata_path = None
 

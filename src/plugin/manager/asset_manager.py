@@ -2,6 +2,7 @@ import logging
 import yaml
 import io
 import pandas as pd
+import numpy as np
 from typing import Generator
 from spaceone.inventory.plugin.collector.lib import *
 from spaceone.core.error import *
@@ -33,6 +34,9 @@ class AssetManager(ResourceManager):
         if "is_primary" in asset_info:
             self.is_primary = asset_info["is_primary"]
 
+        if "unique_key" in asset_info:
+            self.unique_key = asset_info["unique_key"]
+
     def collect_cloud_services(
         self, options: dict, secret_data: dict, schema: str
     ) -> Generator[dict, None, None]:
@@ -42,6 +46,7 @@ class AssetManager(ResourceManager):
         blob = bucket.get_blob(csv_file_path)
         text = blob.download_as_text()
         data_frame = pd.read_csv(io.StringIO(text))
+        data_frame = data_frame.replace({np.nan: None})
 
         _LOGGER.debug(
             f"[{self.__repr__()}] {self.cloud_service_group} > {self.cloud_service_type}: "
@@ -61,13 +66,7 @@ class AssetManager(ResourceManager):
         name = row["name"]
         account = row.get("account")
         region_code = row.get("region_code")
-
-        default_resource_id = row.get(
-            "unique_id",
-            f"{self.provider}:{self.cloud_service_group}:{self.cloud_service_type}:{name}",
-        )
-
-        resource_id = row.get("resource_id", default_resource_id)
+        resource_id = row.get("resource_id", self._get_default_resource_id(row, name))
 
         columns = list(row.index)
 
@@ -124,6 +123,9 @@ class AssetManager(ResourceManager):
             if "is_primary" in metadata_dict:
                 self.is_primary = metadata_dict["is_primary"]
 
+            if "unique_key" in metadata_dict:
+                self.unique_key = metadata_dict["unique_key"]
+
             if "search" in metadata_dict:
                 self.metadata["search"] = metadata_dict["search"]
 
@@ -151,5 +153,25 @@ class AssetManager(ResourceManager):
 
         for column in columns:
             if column not in REQUIRED_COLUMNS and column not in STRUCTURED_COLUMNS:
-                self.metadata["search"]["fields"].append({column: f"data.{column}"})
-                self.metadata["table"]["fields"].append({column: f"data.{column}"})
+                visible_key_value = {
+                    self._change_human_readable(column): f"data.{column}"
+                }
+
+                self.metadata["search"]["fields"].append(visible_key_value)
+
+                if self.unique_key:
+                    visible_key_value["is_optional"] = True
+
+                self.metadata["table"]["fields"].append(visible_key_value)
+
+    @staticmethod
+    def _change_human_readable(column: str):
+        column = column.replace("_", " ")
+        return column.title()
+
+    def _get_default_resource_id(self, row: pd.Series, name: str) -> str:
+        key = self.unique_key if self.unique_key else "unique_id"
+        return row.get(
+            key,
+            f"{self.provider}:{self.cloud_service_group}:{self.cloud_service_type}:{name}",
+        )
