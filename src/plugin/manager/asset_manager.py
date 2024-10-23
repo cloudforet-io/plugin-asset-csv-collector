@@ -159,7 +159,7 @@ class AssetManager(ResourceManager):
 
                 self.metadata["search"]["fields"].append(visible_key_value)
 
-                if self.unique_key:
+                if column == self.unique_key:
                     visible_key_value["is_optional"] = True
 
                 self.metadata["table"]["fields"].append(visible_key_value)
